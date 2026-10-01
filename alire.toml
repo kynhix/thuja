@@ -1,0 +1,31 @@
+name = "thuja"
+description = "Terminal user interface library: cells, typed events, flex layout"
+long-description = """
+A text user interface library in Ada. The application polls typed
+events, draws a whole frame into a buffer of cells, and presents it;
+only the cells that changed are written to the terminal. No heap, no
+tasks, no callbacks. Everything above the terminal is pure and tested
+without one.
+
+GNAT Academic Program capstone project.
+"""
+version = "0.1.0-dev"
+authors = ["Olivier Henley"]
+maintainers = ["Olivier Henley <henley@adacore.com>"]
+maintainers-logins = ["ohenley"]
+licenses = "Apache-2.0"
+website = "https://github.com/GNAT-Academic-Program/thuja"
+tags = ["tui", "terminal", "ui", "spark", "gap"]
+
+project-files = ["thuja.gpr"]
+
+[[depends-on]]
+bedrock = "*"
+
+[[pins]]
+bedrock = { url = "https://github.com/GNAT-Academic-Program/bedrock.git" }
+
+# Picks the terminal backend: src/posix or src/windows.
+[gpr-set-externals.'case(os)']
+windows = { THUJA_OS = "windows" }
+"..." = { THUJA_OS = "posix" }

@@ -1,0 +1,34 @@
+--  Widgets: the things an application draws.
+--
+--  A widget is not an object that lives somewhere. It is a procedure:
+--
+--     Draw (Frame, Area, what to show, how it looks)
+--
+--  called every frame, that paints into Area and nowhere else. The
+--  application decides the Area (with Thuja.Layout) and owns the data.
+--
+--  A widget the user can act on (a list, a text field) adds a small
+--  State record that the application keeps, and a second procedure:
+--
+--     Handle (State, Event, Used)
+--
+--  that updates the state from one event and says whether it used it.
+--  No callbacks: after Handle, the application reads the state.
+--
+--  The rules every widget follows:
+--    * draw only inside Area (Thuja.Buffers clips, so pass Area on);
+--    * no cell arithmetic for placement: ask Thuja.Layout;
+--    * work at any size, including zero, without raising;
+--    * no heap, no global state.
+--
+--  The seed has four, enough to show both patterns:
+--    Blocks         a border and a title          stateless
+--    Labels         one line of text              stateless
+--    Gauges         a progress bar                stateless
+--    Generic_Lists  a scrolling list of rows      State + Handle
+--
+--  Still to write: text input, button, tabs, table, scroll bar, text
+--  area, and a way to move focus between widgets.
+
+package Thuja.Widgets with SPARK_Mode, Pure is
+end Thuja.Widgets;

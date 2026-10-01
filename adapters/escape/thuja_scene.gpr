@@ -1,0 +1,15 @@
+with "thuja";
+with "boxflex";
+
+--  Builds through the boxflex adapter's Alire workspace:
+--     cd ../boxflex && alr exec -- gprbuild -P ../escape/thuja_scene.gpr
+--  It gets its own alire.toml, with escape as a dependency, when the
+--  work starts.
+project Thuja_Scene is
+   for Source_Dirs use ("src");
+   for Object_Dir use "obj";
+   for Create_Missing_Dirs use "True";
+   package Compiler is
+      for Default_Switches ("Ada") use ("-gnat2022", "-gnata", "-gnatwa", "-gnatwe", "-g");
+   end Compiler;
+end Thuja_Scene;

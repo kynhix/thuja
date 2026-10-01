@@ -1,0 +1,57 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build-test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: alire-project/setup-alire@v4
+
+      - name: Build library
+        run: alr -n build
+
+      - name: Tests
+        run: |
+          cd tests
+          alr -n build
+          ./bin/tests
+
+      # No terminal in CI: the showcase draws one frame and prints it.
+      - name: Showcase snapshot
+        run: |
+          cd showcase
+          alr -n build
+          ./bin/showcase --snapshot | tee snapshot.txt
+
+      - name: Upload snapshot
+        uses: actions/upload-artifact@v4
+        with:
+          name: snapshot-${{ matrix.os }}
+          path: showcase/snapshot.txt
+
+  prove:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: alire-project/setup-alire@v4
+
+      # Every SPARK unit of thuja proves. Keep it that way: an unproved
+      # check fails the build.
+      - name: SPARK proof
+        run: |
+          alr -n build
+          alr -n with gnatprove
+          alr -n exec -- gnatprove -P thuja.gpr --mode=all --checks-as-errors=on

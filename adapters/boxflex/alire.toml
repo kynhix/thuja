@@ -1,0 +1,18 @@
+name = "thuja_boxflex"
+description = "boxflex layouts for thuja: a tree of flex boxes in, cell rectangles out"
+version = "0.1.0-dev"
+authors = ["Olivier Henley"]
+maintainers = ["Olivier Henley <henley@adacore.com>"]
+maintainers-logins = ["ohenley"]
+licenses = "Apache-2.0"
+
+executables = ["layout_demo"]
+project-files = ["thuja_boxflex.gpr"]
+
+[[depends-on]]
+thuja = "*"
+boxflex = "*"
+
+[[pins]]
+thuja = { path = "../.." }
+boxflex = { url = "https://github.com/GNAT-Academic-Program/boxflex.git" }
