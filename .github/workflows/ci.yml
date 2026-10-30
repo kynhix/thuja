@@ -4,12 +4,20 @@ on:
   push:
   pull_request:
 
+# The team's toolchain. Keep in step with README.md, "Build and run".
+env:
+  ALIRE_VERSION: 2.1.1
+  ALIRE_TOOLCHAIN: gnat_native=16.1.0 gprbuild
+
 jobs:
   build-test:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest]
+        # macos-15, not macos-latest: GNAT 16.1.0 targets darwin24 and its
+        # link fails against the macOS 26 SDK ("unknown architecture
+        # arm64e.x1-macos" in libSystem.tbd).
+        os: [ubuntu-latest, windows-latest, macos-15]
     runs-on: ${{ matrix.os }}
     defaults:
       run:
@@ -17,7 +25,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: alire-project/setup-alire@v4
+      - uses: alire-project/setup-alire@v6
+        with:
+          version: ${{ env.ALIRE_VERSION }}
+          toolchain: ${{ env.ALIRE_TOOLCHAIN }}
 
       - name: Build library
         run: alr -n build
@@ -46,7 +57,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: alire-project/setup-alire@v4
+      - uses: alire-project/setup-alire@v6
+        with:
+          version: ${{ env.ALIRE_VERSION }}
+          toolchain: ${{ env.ALIRE_TOOLCHAIN }}
 
       # Every SPARK unit of thuja proves. Keep it that way: an unproved
       # check fails the build.
