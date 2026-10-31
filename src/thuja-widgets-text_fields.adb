@@ -12,7 +12,6 @@ package body Thuja.Widgets.Text_Fields is
 
       case E.Kind is
          when Key_Down =>
-
             case E.Key is
                when Key_Left =>
                   S.Cursor := Natural'Max (0, S.Cursor - 1);
@@ -20,11 +19,25 @@ package body Thuja.Widgets.Text_Fields is
                when Key_Right =>
                   S.Cursor := Natural'Min (Length (S.Text), S.Cursor + 1);
 
+               --  Handle Moving to the start
+               --  With either Home or Ctrl - A
                when Key_Home =>
                   S.Cursor := 0;
+               when Key_A =>
+                  if E.Mods.Ctrl
+                  then
+                     S.Cursor := 0;
+                  end if;
 
+               --  Handle Moving to the End
+               --  With either End or Ctrl - E
                when Key_End =>
                   S.Cursor := Length (S.Text);
+               when Key_E =>
+                  if E.Mods.Ctrl
+                  then
+                     S.Cursor := Length (S.Text);
+                  end if;
 
                when Key_Backspace =>
                   if S.Cursor > 0 and S.Cursor <= Length (S.Text) then
