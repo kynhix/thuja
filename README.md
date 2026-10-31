@@ -76,6 +76,12 @@ Do **not** begin by reading every source file. You will understand less, not mor
 
 You need [Alire](https://alire.ada.dev/), the Ada package manager.
 
+The team builds with **Alire 2.1.1** and **GNAT 16.1.0**, the same versions CI uses. Once Alire is installed:
+
+```sh
+alr toolchain --select gnat_native=16.1.0 gprbuild
+```
+
 From the repository root:
 
 ```sh
