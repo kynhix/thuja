@@ -30,6 +30,7 @@ with Thuja.UTF8;
 with Thuja.Widgets.Blocks;
 with Thuja.Widgets.Gauges;
 with Thuja.Widgets.Generic_Lists;
+with Thuja.Widgets.Text_Fields;
 with Thuja.Widgets.Labels;
 
 procedure Showcase is
@@ -37,6 +38,7 @@ procedure Showcase is
    package Blocks renames Thuja.Widgets.Blocks;
    package Gauges renames Thuja.Widgets.Gauges;
    package Labels renames Thuja.Widgets.Labels;
+   package Text_Field renames Thuja.Widgets.Text_Fields;
 
    ---------------------------------------------------------------------
    --  The rows of the list: the demos of the first thuja, the ones to
@@ -62,11 +64,13 @@ procedure Showcase is
    ---------------------------------------------------------------------
 
    type App_State is record
-      Demos      : Demo_Lists.State;
-      Last_Event : Event   := No_Event;
-      Frames     : Natural := 0;
-      Bytes      : Natural := 0;    --  sent to the terminal by the last frame
-      Quit       : Boolean := False;
+      Demos          : Demo_Lists.State;
+      FirstNameDemo  : Text_Field.State;
+      LastNameDemo   : Text_Field.State;
+      Last_Event     : Event   := No_Event;
+      Frames         : Natural := 0;
+      Bytes          : Natural := 0;    --  sent to the terminal by the last frame
+      Quit           : Boolean := False;
    end record;
 
    Accent : constant Style := Bold (Colored (Bedrock.Colors.Sky_Blue));
@@ -112,14 +116,23 @@ procedure Showcase is
       Header : Rect renames Bands (1);
       Footer : Rect renames Bands (3);
 
-      Panes : constant Rect_Array := Split (Bands (2), Row, [Fixed (24), Flex]);
+      Panes : constant Rect_Array := Split (Bands (2), Row, [Fixed (24), Fixed(40), Flex]);
 
       Info : constant Rect_Array :=
-        Split (Blocks.Inner (Panes (2)), Column,
+        Split (Blocks.Inner (Panes (3)), Column,
                [Fixed (1), Fixed (1), Fixed (1), Fixed (1), Fixed (1), Flex, Fixed (2)]);
 
       Status : constant Rect_Array :=
         Split (Blocks.Inner (Footer), Row, [Flex, Fixed (34)], Gap => 2);
+
+      --  Set up two fields for the input boxes
+      --  Each one is 3 units in height
+      Fields : constant Rect_Array :=
+        Split
+         (Area  => Panes(2),
+          Along => Column,
+          Items => [Fixed (3), Fixed (3)],
+          Gap   => 1);
 
       E : Event renames State.Last_Event;
 
@@ -134,7 +147,12 @@ procedure Showcase is
       Blocks.Draw (Frame, Panes (1), "Demos to rebuild");
       Demo_Lists.Draw (Frame, Blocks.Inner (Panes (1)), State.Demos);
 
-      Blocks.Draw (Frame, Panes (2), "Last event");
+      --  Create the input boxes in the block.
+      Blocks.Draw (Frame, Panes (2), "Text Inputs");
+      Text_Field.Draw (Frame, Blocks.Inner (Fields (1)), State.FirstNameDemo, "First Name");
+      Text_Field.Draw (Frame, Blocks.Inner (Fields (2)), State.LastNameDemo, "Last Name");
+
+      Blocks.Draw (Frame, Panes (3), "Last event");
       Labels.Draw (Frame, Info (1), "kind : " & E.Kind'Image);
 
       case E.Kind is
@@ -193,6 +211,10 @@ procedure Showcase is
 
       --  Offer the event to the one widget that has state.
       Demo_Lists.Handle (State.Demos, E, Used);
+      --  Offer the event to the widgets that exist
+      --  @TODO eventually replace with focus and event dispatcher
+      Text_Field.Handle (State.FirstNameDemo, E, Used);
+      Text_Field.Handle (State.LastNameDemo, E, Used);
    end Update;
 
    -----------
@@ -233,6 +255,9 @@ begin
       E    : Event;
    begin
       Term.Open;
+      
+      --  This will intialie the Text Field outside of the drawing loop
+      Text_Field.Set_Text(State.LastNameDemo, "Bluey");
 
       while not State.Quit loop
          declare
