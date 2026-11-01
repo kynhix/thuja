@@ -438,6 +438,20 @@ begin
 
    Check ("Confirm backspace is working", Text_Field.Get_Text(S) = "D");
 
+   --  Delete word before cursor
+   Text_Field.Set_Text (S, "One.  two   three");
+   -- Move to position 11
+   Text_Field.Handle (S, Key_Event (Key_Home, Down => True), Used);
+   for I in 1 .. 14 loop
+      Text_Field.Handle (S, Key_Event (Key_Right, Down => True), Used);
+   end loop;
+
+   Text_Field.Handle (S,
+      Key_Event (Key_W, Down => True,
+               Mods => (Ctrl => True, others => False)),
+      Used);
+
+   Check ("Delete previous word", Text_Field.Get_Text (S) = "One.  two   ree");
 end Test_Text_Fields;
 
 begin
