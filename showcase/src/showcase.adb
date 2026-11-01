@@ -21,10 +21,10 @@ with Bedrock.Colors;
 with Bedrock.Input;  use Bedrock.Input;
 with Bedrock.Screen; use Bedrock.Screen;
 
-with Thuja;          use Thuja;
-with Thuja.Buffers;  use Thuja.Buffers;
-with Thuja.Layout;   use Thuja.Layout;
-with Thuja.Styles;   use Thuja.Styles;
+with Thuja;         use Thuja;
+with Thuja.Buffers; use Thuja.Buffers;
+with Thuja.Layout;  use Thuja.Layout;
+with Thuja.Styles;  use Thuja.Styles;
 with Thuja.Terminal;
 with Thuja.UTF8;
 with Thuja.Widgets.Blocks;
@@ -43,30 +43,35 @@ procedure Showcase is
    --  rebuild on this core.
    ---------------------------------------------------------------------
 
-   function Demo_Count return Natural is (6);
+   function Demo_Count return Natural
+   is (6);
 
-   function Demo_Name (Index : Positive) return String is
-     (case Index is
-         when 1 => "HTop",
-         when 2 => "Text Editor",
-         when 3 => "Flexbox",
-         when 4 => "Sort Visual",
-         when 5 => "Sine Wave",
+   function Demo_Name (Index : Positive) return String
+   is (case Index is
+         when 1      => "HTop",
+         when 2      => "Text Editor",
+         when 3      => "Flexbox",
+         when 4      => "Sort Visual",
+         when 5      => "Sine Wave",
          when others => "Keyboard");
 
-   package Demo_Lists is new Thuja.Widgets.Generic_Lists
-     (Count => Demo_Count, Text => Demo_Name);
+   package Demo_Lists is new
+     Thuja.Widgets.Generic_Lists (Count => Demo_Count, Text => Demo_Name);
 
    ---------------------------------------------------------------------
    --  State
    ---------------------------------------------------------------------
 
+   type Focus_Target is (Left_List, Right_List);
+
    type App_State is record
-      Demos      : Demo_Lists.State;
-      Last_Event : Event   := No_Event;
-      Frames     : Natural := 0;
-      Bytes      : Natural := 0;    --  sent to the terminal by the last frame
-      Quit       : Boolean := False;
+      Focus       : Focus_Target := Left_List;
+      Left_Demos  : Demo_Lists.State;
+      Right_Demos : Demo_Lists.State;
+      Last_Event  : Event := No_Event;
+      Frames      : Natural := 0;
+      Bytes       : Natural := 0; -- sent to terminal by the last frame
+      Quit        : Boolean := False;
    end record;
 
    Accent : constant Style := Bold (Colored (Bedrock.Colors.Sky_Blue));
@@ -93,75 +98,72 @@ procedure Showcase is
    -- Describe --
    --------------
 
-   function Describe (Mods : Modifiers) return String is
-     ((if Mods.Ctrl then "Ctrl " else "")
-      & (if Mods.Alt then "Alt " else "")
-      & (if Mods.Shift then "Shift " else "")
-      & (if Mods = No_Modifiers then "none" else ""));
+   function Describe (Mods : Modifiers) return String
+   is ((if Mods.Ctrl then "Ctrl " else "")
+       & (if Mods.Alt then "Alt " else "")
+       & (if Mods.Shift then "Shift " else "")
+       & (if Mods = No_Modifiers then "none" else ""));
+   pragma Warnings (Off, Describe);
 
    ----------
    -- Draw --
    ----------
 
    procedure Draw (Frame : in out Buffer; State : in out App_State) is
-
-      --  All placement comes from Split: three bands, the middle one
-      --  takes what is left; the middle band is cut in two columns.
-      Bands : constant Rect_Array :=
+      Bands  : constant Rect_Array :=
         Split (Area (Frame), Column, [Fixed (3), Flex, Fixed (3)]);
       Header : Rect renames Bands (1);
       Footer : Rect renames Bands (3);
 
-      Panes : constant Rect_Array := Split (Bands (2), Row, [Fixed (24), Flex]);
-
-      Info : constant Rect_Array :=
-        Split (Blocks.Inner (Panes (2)), Column,
-               [Fixed (1), Fixed (1), Fixed (1), Fixed (1), Fixed (1), Flex, Fixed (2)]);
+      --  Split the terminal content grid in half (left and right columns)
+      Panes : constant Rect_Array := Split (Bands (2), Row, [Flex, Flex]);
 
       Status : constant Rect_Array :=
         Split (Blocks.Inner (Footer), Row, [Flex, Fixed (34)], Gap => 2);
 
-      E : Event renames State.Last_Event;
-
+      Left_Active  : constant Boolean := State.Focus = Left_List;
+      Right_Active : constant Boolean := State.Focus = Right_List;
    begin
       Blocks.Draw (Frame, Header, "thuja", Accent);
-      Labels.Draw (Frame, Blocks.Inner (Header), "A terminal user interface library in Ada");
       Labels.Draw
-        (Frame, Blocks.Inner (Header),
-         Image (Natural (Frame.Width)) & " x " & Image (Natural (Frame.Height)),
-         Faint, Labels.Right);
-
-      Blocks.Draw (Frame, Panes (1), "Demos to rebuild");
-      Demo_Lists.Draw (Frame, Blocks.Inner (Panes (1)), State.Demos);
-
-      Blocks.Draw (Frame, Panes (2), "Last event");
-      Labels.Draw (Frame, Info (1), "kind : " & E.Kind'Image);
-
-      case E.Kind is
-         when Key_Down =>
-            Labels.Draw (Frame, Info (2), "key  : " & E.Key'Image);
-            Labels.Draw (Frame, Info (3), "mods : " & Describe (E.Mods));
-
-         when Text_Input =>
-            Labels.Draw (Frame, Info (2), "text : " & E.Text (1 .. E.Length));
-
-         when Window_Resized =>
-            Labels.Draw
-              (Frame, Info (2),
-               "size : " & Image (Natural (E.Size.Width)) & " x "
-               & Image (Natural (E.Size.Height)));
-
-         when others =>
-            null;
-      end case;
-
-      Labels.Draw (Frame, Info (5), "selected : " & Demo_Name (State.Demos.Selected), Accent);
-      Labels.Draw (Frame, Info (7), "Up/Down move the list. Type to see keys decoded.", Faint);
+        (Frame,
+         Blocks.Inner (Header),
+         "A terminal user interface library in Ada");
       Labels.Draw
-        (Frame, Make (Info (7).Origin.X, Info (7).Origin.Y + 1, Info (7).Extent.Width, 1),
-         "Try an accent, F5, Ctrl+Right: not decoded yet.", Faint);
+        (Frame,
+         Blocks.Inner (Header),
+         Image (Natural (Frame.Width))
+         & " x "
+         & Image (Natural (Frame.Height)),
+         Faint,
+         Labels.Right);
 
-      Blocks.Draw (Frame, Footer, "q quits");
+      --  Left List Widget
+      Blocks.Draw
+        (Frame,
+         Panes (1),
+         Title => (if Left_Active then "Demos (Active)" else "Demos"),
+         S     => (if Left_Active then Accent else Faint));
+      Demo_Lists.Draw
+        (Frame,
+         Blocks.Inner (Panes (1)),
+         State.Left_Demos,
+         Highlight => (if Left_Active then Inverse (Plain) else Faint));
+
+      --  Right List Widget
+      Blocks.Draw
+        (Frame,
+         Panes (2),
+         Title =>
+           (if Right_Active then "Second List (Active)" else "Second List"),
+         S     => (if Right_Active then Accent else Faint));
+      Demo_Lists.Draw
+        (Frame,
+         Blocks.Inner (Panes (2)),
+         State.Right_Demos,
+         Highlight => (if Right_Active then Inverse (Plain) else Faint));
+
+      Blocks.Draw (Frame, Footer, "q quits | Tab switches focus");
       Gauges.Draw (Frame, Status (1), State.Frames mod 101, Accent);
       Labels.Draw
         (Frame, Status (2),
@@ -191,8 +193,21 @@ procedure Showcase is
          return;
       end if;
 
-      --  Offer the event to the one widget that has state.
-      Demo_Lists.Handle (State.Demos, E, Used);
+      --  Tab toggles focus between left and right lists
+      if E.Kind = Key_Down and then E.Key = Key_Tab then
+         State.Focus :=
+           (if State.Focus = Left_List then Right_List else Left_List);
+         return;
+      end if;
+
+      --  Route input only to the currently focused list widget
+      case State.Focus is
+         when Left_List  =>
+            Demo_Lists.Handle (State.Left_Demos, E, Used);
+
+         when Right_List =>
+            Demo_Lists.Handle (State.Right_Demos, E, Used);
+      end case;
    end Update;
 
    -----------
