@@ -57,7 +57,7 @@ procedure Showcase is
    Sort_Visual_Demo : aliased Demo.Placeholder.State := Demo.Placeholder.Make ("Sort Visual");
    Sine_Wave_Demo   : aliased Demo.Placeholder.State := Demo.Placeholder.Make ("Sine Wave");
    Keyboard_Demo    : aliased Demo.Keyboard.State;
-   Text_Fields_Demo : aliased Demo.Text_Fields.State := Demo.Text_Fields.Make("Text Fields");
+   Text_Fields_Demo : aliased Demo.Text_Fields.State;
 
    Demos : constant array (Page) of Demo_Access :=
      [HTop        => HTop_Demo'Access,

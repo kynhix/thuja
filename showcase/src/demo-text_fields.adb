@@ -7,13 +7,6 @@ package body Demo.Text_Fields is
    package Blocks renames Thuja.Widgets.Blocks;
 
    ----------
-   -- Make --
-   ----------
-
-   function Make (Title : String) return State is
-     ((Length => Title'Length, Title => Title, others => <>));
-
-   ----------
    -- Draw --
    ----------
 
@@ -27,7 +20,7 @@ package body Demo.Text_Fields is
           Items => [Fixed (3), Fixed (3), Fixed (3)],
           Gap   => 1);
    begin
-      Blocks.Draw (Frame, Area, D.Title, Border (Focused));
+      Blocks.Draw (Frame, Area, Title, Border (Focused));
 
       Text_Field.Draw (Frame, Blocks.Inner (Fields (1)), D.FirstName, "First Name");
       Text_Field.Draw (Frame, Blocks.Inner (Fields (2)), D.LastName, "Last Name");
