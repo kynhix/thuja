@@ -391,22 +391,23 @@ procedure Tests is
 
 procedure Test_Text_Fields is
    package Text_Field renames Thuja.Widgets.Text_Fields;
+   use Text_Field.Input_Strings;
    S    : Text_Field.State;
    Used : Boolean;
-   TestText : Unbounded_String := To_Unbounded_String ("ABCDEFG");
+   TestText : Bounded_String := To_Bounded_String ("ABCDEFG");
    LetterD : constant Event_List := Decode ("D");
 begin
    for E of Decode(To_String (TestText)) loop
       Text_Field.Handle(S, E, Used);
    end loop;
 
-   Check ("Confirm Typed text matches", Text_Field.Get_Text(S) = To_String(TestText));
+   Check ("Confirm Typed text matches", S.Text = TestText);
 
-   TestText := To_Unbounded_String ("ABC");
+   TestText := To_Bounded_String ("ABC");
 
    Text_Field.Set_Text(S, To_String (TestText));
 
-   Check ("Confirm Set Text worked", Text_Field.Get_Text(S) = To_String(TestText));
+   Check ("Confirm Set Text worked", S.Text = TestText);
 
    --  Move left twice
    Text_Field.Handle(S, Key_Event (Key_Left, Down => True), Used);
@@ -415,7 +416,7 @@ begin
    -- Type a letter D
    Text_Field.Handle (S, LetterD (LetterD'First), Used);
    -- Confirm it inserted it at the proper point
-   Check ("Confirm Moving and insert worked", Text_Field.Get_Text(S) = "ADBC");
+   Check ("Confirm Moving and insert worked", S.Text = To_Bounded_String ("ADBC"));
 
    -- Check making sure right does not crash the program
    for E in 1 .. 100 loop
@@ -426,7 +427,7 @@ begin
    -- Type another Letter D
    Text_Field.Handle (S, LetterD (LetterD'First), Used);
    -- Confirm it inserted it at the proper point
-   Check ("Confirm Moving right and still adds it at the end", Text_Field.Get_Text(S) = "ADBCD");
+   Check ("Confirm Moving right and still adds it at the end", S.Text = To_Bounded_String ("ADBCD"));
 
    --  Move left once
    Text_Field.Handle(S, Key_Event (Key_Left, Down => True), Used);
@@ -436,7 +437,7 @@ begin
       Text_Field.Handle(S, Key_Event (Key_Backspace, Down => True), Used);
    end loop;
 
-   Check ("Confirm backspace is working", Text_Field.Get_Text(S) = "D");
+   Check ("Confirm backspace is working", S.Text = "D");
 
    --  Delete word before cursor
    Text_Field.Set_Text (S, "One.  two   three");
@@ -451,7 +452,7 @@ begin
                Mods => (Ctrl => True, others => False)),
       Used);
 
-   Check ("Delete previous word", Text_Field.Get_Text (S) = "One.  two   ree");
+   Check ("Delete previous word", S.Text = "One.  two   ree");
 end Test_Text_Fields;
 
 begin

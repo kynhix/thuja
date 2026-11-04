@@ -137,6 +137,17 @@ package body Thuja.Widgets.Text_Fields is
             To_String (Render_Text), Look, Clip => Row);
    end Draw;
 
+   --------------
+   -- Set_Text --
+   --------------
+
+   procedure Set_Text (S : in out State;
+                       Text : String) is
+   begin
+      S.Text := To_Bounded_String (Text);
+      S.Cursor := Text'Length;
+   end Set_Text;
+
    --------------------
    -- String Helpers --
    --------------------

@@ -35,4 +35,8 @@ package Thuja.Widgets.Text_Fields is
    --  Three rows row for the entire input box
    --  Along with a title
 
+   procedure Set_Text (S : in out State;
+                       Text : String)
+      with Pre => Text'Length >= 0 and then Text'Length < 256;
+
 end Thuja.Widgets.Text_Fields;
