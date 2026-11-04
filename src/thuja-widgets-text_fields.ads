@@ -1,11 +1,23 @@
 --  One line of input text in an area
 with Bedrock.Input; use Bedrock.Input;
 with Thuja.Buffers; use Thuja.Buffers;
-with Ada.Strings.Unbounded;
-use Ada.Strings.Unbounded;
+with Ada.Strings.Bounded;
 
 package Thuja.Widgets.Text_Fields is
-   type State is private;
+   --  Do a Max length of 256 by default
+   Max_Length : constant Natural := 256;
+
+   package Input_Strings is new
+      Ada.Strings.Bounded.Generic_Bounded_Length (Max => Max_Length);
+
+   use Input_Strings;
+
+   type State is record
+      Text    : Bounded_String := Null_Bounded_String;
+      Cursor  : Natural := 0; -- start at 0
+   end record;
+   --  Keep track of the internal state of the text Input
+   --  Also keep track of where the cursor is in the input
 
    procedure Handle (S : in out State;
                      E : Event; Used :
@@ -22,20 +34,5 @@ package Thuja.Widgets.Text_Fields is
      with Pre => In_Range (Area);
    --  Three rows row for the entire input box
    --  Along with a title
-
-   function Get_Text (S :   State) return String;
-   --  We're getting the text here
-
-   procedure Set_Text (S : in out State; Text : String);
-   --  Setting the text here
-
-private
-
-   type State is record
-      Text    : Unbounded_String := To_Unbounded_String ("");
-      Cursor  : Natural := 0; -- start at 0
-   end record;
-   --  Keep track of the internal state of the text Input
-   --  Also keep track of where the cursor is in the input
 
 end Thuja.Widgets.Text_Fields;

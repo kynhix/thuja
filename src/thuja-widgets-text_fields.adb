@@ -91,8 +91,12 @@ package body Thuja.Widgets.Text_Fields is
             end case;
 
          when Text_Input =>
-               Insert (S.Text, S.Cursor + 1, E.Text (1 .. E.Length));
-               S.Cursor := S.Cursor + 1;
+               --  @TODO temporary limit max length to -1 because of putting in the pipe
+               --  to act the cursor. This can be removed when moving to the actual terminal cursor
+               if Length (S.Text) < Max_Length - 1 then
+                  Insert (S.Text, S.Cursor + 1, E.Text (1 .. E.Length));
+                  S.Cursor := S.Cursor + 1;
+               end if;
 
          when others =>
             Used := False;
@@ -111,8 +115,7 @@ package body Thuja.Widgets.Text_Fields is
       Title     : String)
    is
       Look  : constant Style := Thuja.Styles.Plain;
-      Render_Text : Unbounded_String :=
-         To_Unbounded_String (Get_Text (S));
+      Render_Text : Bounded_String := S.Text;
       Row   : constant Rect :=
         Make (Area.Origin.X, Area.Origin.Y, Area.Extent.Width, 3);
    begin
@@ -133,17 +136,6 @@ package body Thuja.Widgets.Text_Fields is
       Put (Frame, Row.Origin.X + 1, Row.Origin.Y + 1,
             To_String (Render_Text), Look, Clip => Row);
    end Draw;
-
-   function Get_Text (S : State) return String is
-   begin
-      return To_String (S.Text);
-   end Get_Text;
-
-   procedure Set_Text (S : in out State; Text : String) is
-   begin
-      S.Text := To_Unbounded_String (Text);
-      S.Cursor := Text'Length;
-   end Set_Text;
 
    --------------------
    -- String Helpers --
