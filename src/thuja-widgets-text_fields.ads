@@ -15,6 +15,7 @@ package Thuja.Widgets.Text_Fields is
    type State is record
       Text    : Bounded_String := Null_Bounded_String;
       Cursor  : Natural := 0; -- start at 0
+      Origin  : Natural := 0; -- Keep track of where to start drawing text
    end record;
    --  Keep track of the internal state of the text Input
    --  Also keep track of where the cursor is in the input
