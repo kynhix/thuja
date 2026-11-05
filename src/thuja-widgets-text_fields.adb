@@ -120,7 +120,7 @@ package body Thuja.Widgets.Text_Fields is
         Make (Area.Origin.X, Area.Origin.Y, Area.Extent.Width, 3);
    begin
       if Is_Empty (Area) or
-         Area.Origin.Y < 3 -- only allow 3 so we can block it
+         Area.Extent.Height < 3 -- only allow 3 so we can block it
       then
          return;
       end if;
@@ -130,8 +130,30 @@ package body Thuja.Widgets.Text_Fields is
       --  Draw the input's border and title
       Blocks.Draw (Frame, Row, Title);
 
+      --  If the Cursor moves beyond the text bar width
+      --  We need to calculate the new Origin (which is where the bar is)
+      if (S.Cursor - S.Origin) > Natural (Row.Extent.Width - 3)
+      then
+         S.Origin := S.Cursor - Natural (Row.Extent.Width - 3);
+      --  IF the Cursor moves below the Origin,
+      --  Then Origin needs to decrease along with it.
+      elsif S.Cursor < S.Origin and S.Origin > 0
+      then
+         S.Origin := S.Cursor;
+      end if;
+
       --  Inject cursor at specific point
       Insert (Render_Text, S.Cursor + 1, "|");
+
+      --  Get the slice of the render text to display
+      Render_Text := Bounded_Slice (
+            Source => Render_Text,
+            Low => S.Origin + 1, -- Cursor and Origin are 0 indexed so add 1
+            High =>
+               --  Get either the minimum length of the string
+               --  or the max size string that will fit in the textbox
+               Natural'Min (Length (Render_Text), S.Origin + Natural (Row.Extent.Width) - 2)
+      );
 
       Put (Frame, Row.Origin.X + 1, Row.Origin.Y + 1,
             To_String (Render_Text), Look, Clip => Row);
