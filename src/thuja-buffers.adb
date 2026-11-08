@@ -121,4 +121,25 @@ package body Thuja.Buffers with SPARK_Mode is
       return Result;
    end Row_Image;
 
+   ---------------
+   --   Cursor  --
+   ---------------
+
+   function Cursor (B : Buffer) return Cursor_Info is
+   begin
+      return B.Cursor_Request;
+   end Cursor;
+
+   procedure Set_Cursor
+      (B         : in out Buffer;
+      X, Y       : Pixels; --  x,y within the container
+      Container  : Rect;   --  container for the cursor
+      Style      : Cursor_Style := Default) is
+   begin
+      B.Cursor_Request.X := Container.Origin.X + X;
+      B.Cursor_Request.Y := Container.Origin.Y + Y;
+      B.Cursor_Request.Style := Style;
+      B.Cursor_Request.Visible := True;
+   end Set_Cursor;
+
 end Thuja.Buffers;

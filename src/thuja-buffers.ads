@@ -79,6 +79,26 @@ package Thuja.Buffers with SPARK_Mode is
      with Pre => Y in 0 .. B.Height - 1;
    --  The characters of row Y. Styles are not shown.
 
+   type Cursor_Style is
+   (Default,
+    Bar,
+    Block);
+
+   type Cursor_Info is record
+      Visible : Boolean      := False;
+      X       : Pixels       := 0;
+      Y       : Pixels       := 0;
+      Style   : Cursor_Style := Default;
+   end record;
+
+   function Cursor (B : Buffer) return Cursor_Info;
+
+   procedure Set_Cursor
+   (B          : in out Buffer;
+    X, Y       : Pixels;
+    Container  : Rect;
+    Style      : Cursor_Style := Default);
+
 private
 
    type Cell_Grid is array (Pixels range <>, Pixels range <>) of Cell;
@@ -88,6 +108,7 @@ private
 
    type Buffer (Width : Column_Count; Height : Row_Count) is record
       Cells : Cell_Grid (1 .. Height, 1 .. Width);
+      Cursor_Request : Cursor_Info;
    end record;
 
    function Get (B : Buffer; X, Y : Pixels) return Cell is (B.Cells (Y + 1, X + 1));

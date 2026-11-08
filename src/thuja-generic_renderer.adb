@@ -24,6 +24,8 @@ package body Thuja.Generic_Renderer is
 
    procedure Emit_Cell (X, Y : Pixels; C : Cell);
 
+   procedure Emit_Cursor (C : Cursor_Info);
+
    -----------
    -- Image --
    -----------
@@ -105,6 +107,12 @@ package body Thuja.Generic_Renderer is
       if Changed then
          Emit (Reset);
       end if;
+
+      if Changed
+        or else Cursor (Before) /= Cursor (After)
+      then
+         Emit_Cursor (Cursor (After));
+      end if;
    end Diff;
 
    ----------
@@ -125,5 +133,31 @@ package body Thuja.Generic_Renderer is
 
       Emit (Reset);
    end Full;
+
+   ----------------------
+   -- Show/Hide Cursor --
+   ----------------------
+
+   procedure Emit_Cursor (C : Cursor_Info) is
+   begin
+      if not C.Visible then
+         Emit (CSI & "?25l");
+         return;
+      end if;
+
+      case C.Style is
+         when Default =>
+            Emit (CSI & "0 q");
+
+         when Bar =>
+            Emit (CSI & "5 q");
+
+         when Block =>
+            Emit (CSI & "2 q");
+      end case;
+
+      Emit (Move_To (C.X, C.Y));
+      Emit (CSI & "?25h");
+   end Emit_Cursor;
 
 end Thuja.Generic_Renderer;
