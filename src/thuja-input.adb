@@ -35,6 +35,15 @@ package body Thuja.Input with SPARK_Mode is
    procedure Feed_UTF8 (D : in out Decoder; Byte : Character; E : out Event)
      with Pre => not E'Constrained;
 
+   --  Validate the second byte of a UTF-8 sequence
+   function Second_Ok (Lead, Byte : Natural) return Boolean is
+   (case Lead is
+         when 16#E0# => Byte in 16#A0# .. 16#BF#,
+         when 16#ED# => Byte in 16#80# .. 16#9F#,
+         when 16#F0# => Byte in 16#90# .. 16#BF#,
+         when 16#F4# => Byte in 16#80# .. 16#8F#,
+         when others => Byte in 16#80# .. 16#BF#);
+
    -----------------
    -- Feed_Ground --
    -----------------
@@ -201,7 +210,10 @@ package body Thuja.Input with SPARK_Mode is
    procedure Feed_UTF8 (D : in out Decoder; Byte : Character; E : out Event) is
       Code : constant Natural := Character'Pos (Byte);
    begin
-      if Code not in 2#10000000# .. 2#10111111# or else D.Have >= D.Need then
+      if Code not in 2#10000000# .. 2#10111111#
+         or else D.Have >= D.Need
+         or else (D.Have = 1 and then not Second_Ok (Character'Pos (D.Bytes (1)), Code))
+      then
          --  Not a continuation byte: drop the unfinished character and
          --  read Byte as the start of something new.
          D := (Where => Ground, Bytes => "    ", others => 0);
