@@ -95,6 +95,13 @@ package body Thuja.Generic_Renderer is
    procedure Diff (Before, After : Buffer) is
       Changed : Boolean := False;
    begin
+      --  Hide the Cursor if it was visible
+      --  To avoid a flicker
+      if Cursor (Before).Visible
+      then
+         Emit (CSI & "?25l");
+      end if;
+
       for Y in 0 .. After.Height - 1 loop
          for X in 0 .. After.Width - 1 loop
             if Get (After, X, Y) /= Get (Before, X, Y) then
@@ -132,6 +139,11 @@ package body Thuja.Generic_Renderer is
       end loop;
 
       Emit (Reset);
+
+      if Cursor (After).Visible
+      then
+         Emit_Cursor (Cursor (After));
+      end if;
    end Full;
 
    ----------------------
