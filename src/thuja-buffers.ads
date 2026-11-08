@@ -97,7 +97,13 @@ package Thuja.Buffers with SPARK_Mode is
    (B          : in out Buffer;
     X, Y       : Pixels;
     Container  : Rect;
-    Style      : Cursor_Style := Default);
+    Style      : Cursor_Style := Default)
+    with Pre =>
+      In_Range (Container)
+      and then X >= 0
+      and then Y >= 0
+      and then X < Container.Extent.Width
+      and then Y < Container.Extent.Height;
 
 private
 
