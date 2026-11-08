@@ -11,6 +11,9 @@ package body Thuja.Buffers with SPARK_Mode is
             B.Cells (Y, X) := Blank;
          end loop;
       end loop;
+
+      --  Clear cursor data
+      B.Cursor_Request := (others => <>);
    end Clear;
 
    ---------
@@ -53,6 +56,9 @@ package body Thuja.Buffers with SPARK_Mode is
             Target.Cells (Y, X) := Source.Cells (Y, X);
          end loop;
       end loop;
+
+      --  Copy cursor data
+      Target.Cursor_Request := Source.Cursor_Request;
    end Copy;
 
    ---------
