@@ -93,11 +93,12 @@ package Thuja.Buffers with SPARK_Mode is
 
    function Cursor (B : Buffer) return Cursor_Info;
 
+   procedure Set_Cursor_Style (B : in out Buffer; Style : Cursor_Style);
+
    procedure Set_Cursor
    (B          : in out Buffer;
     X, Y       : Pixels;
-    Container  : Rect;
-    Style      : Cursor_Style := Default)
+    Container  : Rect)
     with Pre =>
       In_Range (Container)
       and then X >= 0
@@ -115,6 +116,7 @@ private
    type Buffer (Width : Column_Count; Height : Row_Count) is record
       Cells : Cell_Grid (1 .. Height, 1 .. Width);
       Cursor_Request : Cursor_Info;
+      Cursor_Style_State : Cursor_Style := Default;
    end record;
 
    function Get (B : Buffer; X, Y : Pixels) return Cell is (B.Cells (Y + 1, X + 1));
