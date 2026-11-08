@@ -134,8 +134,7 @@ package body Thuja.Widgets.Text_Fields is
       Set_Cursor (B => Frame,
          X => Pixels (S.Cursor + 1),
          Y => 1,
-         Container => Row,
-         Style => Bar);
+         Container => Row);
 
       Put (Frame, Row.Origin.X + 1, Row.Origin.Y + 1,
             To_String (Render_Text), Look, Clip => Row);
