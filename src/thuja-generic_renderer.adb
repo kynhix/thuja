@@ -108,7 +108,7 @@ package body Thuja.Generic_Renderer is
          Emit (Reset);
       end if;
 
-      if Changed
+      if (Changed and then Cursor (After).Visible)
         or else Cursor (Before) /= Cursor (After)
       then
          Emit_Cursor (Cursor (After));
