@@ -8,4 +8,6 @@ package Thuja.UTF8 with SPARK_Mode, Pure is
    --  The bytes of C. Code points that UTF-8 cannot carry (above
    --  16#10FFFF#, or the surrogate range) become '?'.
 
+   function Decode (S : String) return Wide_Wide_Character;
+
 end Thuja.UTF8;
