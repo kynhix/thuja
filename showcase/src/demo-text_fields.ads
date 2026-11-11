@@ -5,11 +5,14 @@ package Demo.Text_Fields is
 
    Title     : String(1..11) := "Text Inputs";
 
+   type Field_Id is (FirstName, LastName, Email);
+
+   type Text_Field_Array is
+      array (Field_Id) of Text_Field.State;
+
    type State is new Instance with record
-      
-      FirstName : Text_Field.State;
-      LastName  : Text_Field.State;
-      Email     : Text_Field.State;
+      Text_Fields : Text_Field_Array;
+      Focused     : Field_Id := FirstName;
    end record;
 
    overriding function Name (D : State) return String is (Title);

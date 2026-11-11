@@ -1,4 +1,3 @@
-with Thuja.Styles;  use Thuja.Styles;
 with Thuja.Widgets.Blocks;
 package body Thuja.Widgets.Text_Fields is
 
@@ -112,9 +111,10 @@ package body Thuja.Widgets.Text_Fields is
      (Frame     : in out Buffer;
       Area      : Rect;
       S         : in out State;
-      Title     : String)
+      Title     : String;
+      Focused   : Boolean)
    is
-      Look  : constant Style := Thuja.Styles.Plain;
+      Look  : constant Style := Plain;
       Render_Text : constant Bounded_String := S.Text;
       Row   : constant Rect :=
         Make (Area.Origin.X, Area.Origin.Y, Area.Extent.Width, 3);
@@ -128,13 +128,15 @@ package body Thuja.Widgets.Text_Fields is
       Fill (Frame, Row, (' ', Look));
 
       --  Draw the input's border and title
-      Blocks.Draw (Frame, Row, Title);
+      Blocks.Draw (Frame, Row, Title, Border (Focused));
 
-      --  Inject cursor at specific point
-      Set_Cursor (B => Frame,
-         X => Pixels (S.Cursor + 1),
-         Y => 1,
-         Container => Row);
+      if Focused then
+         --  Inject cursor at specific point
+         Set_Cursor (B => Frame,
+            X => Pixels (S.Cursor + 1),
+            Y => 1,
+            Container => Row);
+      end if;
 
       Put (Frame, Row.Origin.X + 1, Row.Origin.Y + 1,
             To_String (Render_Text), Look, Clip => Row);

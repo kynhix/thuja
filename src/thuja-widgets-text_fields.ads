@@ -3,6 +3,9 @@ with Bedrock.Input; use Bedrock.Input;
 with Thuja.Buffers; use Thuja.Buffers;
 with Ada.Strings.Bounded;
 
+with Thuja.Styles;   use Thuja.Styles;
+with Bedrock.Colors;
+
 package Thuja.Widgets.Text_Fields is
    --  Do a Max length of 256 by default
    Max_Length : constant Natural := 256;
@@ -30,7 +33,8 @@ package Thuja.Widgets.Text_Fields is
      (Frame     : in out Buffer;
       Area      : Rect;
       S         : in out State;
-      Title     : String)
+      Title     : String;
+      Focused   : Boolean)
      with Pre => In_Range (Area);
    --  Three rows row for the entire input box
    --  Along with a title
@@ -39,4 +43,6 @@ package Thuja.Widgets.Text_Fields is
                        Text : String)
       with Pre => Text'Length >= 0 and then Text'Length < 256;
 
+   function Border (Focused : Boolean) return Style is
+     (if Focused then Bold (Colored (Bedrock.Colors.Sky_Blue)) else Plain);
 end Thuja.Widgets.Text_Fields;
