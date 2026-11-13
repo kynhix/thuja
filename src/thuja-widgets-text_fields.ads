@@ -31,7 +31,7 @@ package Thuja.Widgets.Text_Fields is
      (Frame     : in out Buffer;
       Area      : Rect;
       S         : in out State;
-      Title     : String)
+      Focused   : Boolean)
      with Pre => In_Range (Area);
    --  Three rows row for the entire input box
    --  Along with a title
