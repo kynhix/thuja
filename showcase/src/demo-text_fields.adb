@@ -6,6 +6,12 @@ package body Demo.Text_Fields is
 
    package Blocks renames Thuja.Widgets.Blocks;
 
+      procedure Draw_Field (Frame   : in out Buffer;
+      Area    : Rect;
+      S       : in out Text_Field.State;
+      Title   : String;
+      Focused : Boolean);
+
    ----------
    -- Draw --
    ----------
@@ -22,11 +28,11 @@ package body Demo.Text_Fields is
    begin
       Blocks.Draw (Frame, Area, Title, Border (Focused));
 
-      Text_Field.Draw (Frame, Fields (1), D.Text_Fields (FirstName), "First Name",
+      Draw_Field (Frame, Fields (1), D.Text_Fields (FirstName), "First Name",
             D.Focused = FirstName);
-      Text_Field.Draw (Frame, Fields (2), D.Text_Fields (LastName), "Last Name",
+      Draw_Field (Frame, Fields (2), D.Text_Fields (LastName), "Last Name",
             D.Focused = LastName);
-      Text_Field.Draw (Frame, Fields (3), D.Text_Fields (Email), "Email",
+      Draw_Field (Frame, Fields (3), D.Text_Fields (Email), "Email",
             D.Focused = Email);
    end Draw;
 
@@ -49,5 +55,27 @@ package body Demo.Text_Fields is
       --  Offer the event to the widgets that exist
       Text_Field.Handle (D.Text_Fields (D.Focused), E, Used);
    end Update;
+
+   --  Helper function to draw a text field with a border around it.
+   procedure Draw_Field
+   (Frame   : in out Buffer;
+      Area    : Rect;
+      S       : in out Text_Field.State;
+      Title   : String;
+      Focused : Boolean)
+   is
+   begin
+      if Area.Extent.Height < 3
+         or else Area.Extent.Width < 3
+      then
+         return;
+      end if;
+
+      Blocks.Draw
+      (Frame, Area, Title, Border (Focused));
+
+      Text_Field.Draw
+      (Frame, Blocks.Inner (Area), S, Focused);
+   end Draw_Field;
 
 end Demo.Text_Fields;
