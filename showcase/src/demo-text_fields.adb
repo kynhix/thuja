@@ -15,16 +15,16 @@ package body Demo.Text_Fields is
    is
       Fields : constant Rect_Array :=
         Split
-         (Area  => Area,
+         (Area  => Blocks.Inner (Area),
           Along => Column,
           Items => [Fixed (3), Fixed (3), Fixed (3)],
           Gap   => 1);
    begin
       Blocks.Draw (Frame, Area, Title, Border (Focused));
 
-      Text_Field.Draw (Frame, Blocks.Inner (Fields (1)), D.FirstName, "First Name");
-      Text_Field.Draw (Frame, Blocks.Inner (Fields (2)), D.LastName, "Last Name");
-      Text_Field.Draw (Frame, Blocks.Inner (Fields (3)), D.Email, "Email");
+      Text_Field.Draw (Frame, Fields (1), D.FirstName, "First Name");
+      Text_Field.Draw (Frame, Fields (2), D.LastName, "Last Name");
+      Text_Field.Draw (Frame, Fields (3), D.Email, "Email");
 
    end Draw;
 

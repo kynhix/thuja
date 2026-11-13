@@ -396,6 +396,7 @@ procedure Test_Text_Fields is
    Used : Boolean;
    TestText : Bounded_String := To_Bounded_String ("ABCDEFG");
    LetterD : constant Event_List := Decode ("D");
+   B     : Buffer (256, 5);
 begin
    for E of Decode(To_String (TestText)) loop
       Text_Field.Handle(S, E, Used);
@@ -453,6 +454,53 @@ begin
       Used);
 
    Check ("Delete previous word", S.Text = "One.  two   ree");
+
+   --  Text field horizontal scrolling tests
+   Text_Field.Set_Text (S, "ABCDEFG");
+
+   --  No scrolling
+   S.Cursor := 3;
+   Clear (B);
+   -- Create a row of area that is 4 letters long
+   Text_Field.Draw (B, Make (0, 0, 6, 3), S, "A");
+
+   -- Check to make sure it only shows 4 letters
+   Check ("Confirm rendering works with no scrolling",
+         Row (B, 1) (2 .. 5) = "ABCD");
+
+   --  Scroll three characters to the right
+   S.Cursor := 6;
+   Clear (B);
+   Text_Field.Draw (B, Make (0, 0, 6, 3), S, "A");
+
+   Check ("Confirm scroll works with cursor at point 3 in a 4 width container",
+         Row (B, 1) (2 .. 5) = "DEFG");
+
+   declare
+      Long_Text : constant String := "ABC DEF GHI JHK LMN OPQ RST UV";
+   begin
+      Text_Field.Set_Text (S, Long_Text);
+      S.Cursor := 0;
+      
+      Text_Field.Draw (B, Make (0, 0, 10, 3), S, "A");
+
+      Check ("Confirm long text with cursor at start works",
+         Row (B, 1) (2 .. 9) = "ABC DEF ");
+
+      for i in 1 .. 3 loop
+         Text_Field.Handle (S, Key_Event (Key_Right, Down => True, 
+               Mods => (Ctrl => True, others => False)), Used);
+      end loop;
+
+      Text_Field.Draw (B, Make (0, 0, 10, 3), S, "A");
+
+      Check ("Confirm Ctrl right hit 3 times moves the scroll the correct amount",
+         Row (B, 1) (2 .. 9) = "DEF GHI ");
+   end;
+   --  Text field horizontal scrolling tests
+
+   
+
 end Test_Text_Fields;
 
 begin
