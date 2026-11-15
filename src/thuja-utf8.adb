@@ -24,6 +24,20 @@ package body Thuja.UTF8 with SPARK_Mode is
       end if;
    end Encode;
 
+   ---------------------
+   -- Sequence_Length --
+   ---------------------
+
+   function Sequence_Length (Lead : Character) return Positive is
+   begin
+      case Character'Pos (Lead) is
+         when 16#C2# .. 16#DF# => return 2;
+         when 16#E0# .. 16#EF# => return 3;
+         when 16#F0# .. 16#F4# => return 4;
+         when others           => return 1;
+      end case;
+   end Sequence_Length;
+
    ------------
    -- Decode --
    ------------
