@@ -8,6 +8,10 @@ package Thuja.UTF8 with SPARK_Mode, Pure is
    --  The bytes of C. Code points that UTF-8 cannot carry (above
    --  16#10FFFF#, or the surrogate range) become '?'.
 
-   function Decode (S : String) return Wide_Wide_Character;
+   function Decode (S : String) return Wide_Wide_Character
+     with Post => Wide_Wide_Character'Pos (Decode'Result) <= 16#10_FFFF#
+                  and then Wide_Wide_Character'Pos (Decode'Result) not in 16#D800# .. 16#DFFF#;
+   --  The character that S encodes. Anything that is not exactly one
+   --  valid UTF-8 character becomes U+FFFD.
 
 end Thuja.UTF8;

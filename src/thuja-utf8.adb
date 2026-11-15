@@ -52,9 +52,10 @@ package body Thuja.UTF8 with SPARK_Mode is
          return Bad;
       end if;
 
-      for I in S'First + 1 .. S'Last loop
+      for K in 1 .. Need - 1 loop
+         pragma Loop_Invariant (Code < 2 ** (5 + 6 * (K - 1)));
          declare
-            B : constant Natural := Character'Pos (S (I));
+            B : constant Natural := Character'Pos (S (S'First + K));
          begin
             if B not in 16#80# .. 16#BF# then
                return Bad;
