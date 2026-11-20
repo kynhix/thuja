@@ -29,11 +29,11 @@ package body Demo.Text_Fields is
       Blocks.Draw (Frame, Area, Title, Border (Focused));
 
       Draw_Field (Frame, Fields (1), D.Text_Fields (FirstName), "First Name",
-            D.Focused = FirstName);
+            (Focused and D.Focused = FirstName));
       Draw_Field (Frame, Fields (2), D.Text_Fields (LastName), "Last Name",
-            D.Focused = LastName);
+            (Focused and D.Focused = LastName));
       Draw_Field (Frame, Fields (3), D.Text_Fields (Email), "Email",
-            D.Focused = Email);
+            (Focused and D.Focused = Email));
    end Draw;
 
    ------------
