@@ -1,5 +1,4 @@
-with Thuja.Styles;  use Thuja.Styles;
-with Thuja.Widgets.Blocks;
+with Thuja.Styles; use Thuja.Styles;
 package body Thuja.Widgets.Text_Fields is
 
    --  Some specifications for the String Helpers
@@ -111,23 +110,19 @@ package body Thuja.Widgets.Text_Fields is
      (Frame     : in out Buffer;
       Area      : Rect;
       S         : in out State;
-      Title     : String)
+      Focused   : Boolean)
    is
       Look  : constant Style := Thuja.Styles.Plain;
       Render_Text : Bounded_String := S.Text;
       Row   : constant Rect :=
-        Make (Area.Origin.X, Area.Origin.Y, Area.Extent.Width, 3);
+        Make (Area.Origin.X, Area.Origin.Y, Area.Extent.Width, 1);
    begin
-      if Is_Empty (Area) or
-         Area.Extent.Height < 3 -- only allow 3 so we can block it
+      if Is_Empty (Area)
       then
          return;
       end if;
 
       Fill (Frame, Row, (' ', Look));
-
-      --  Draw the input's border and title
-      Blocks.Draw (Frame, Row, Title);
 
       --  If the Cursor moves beyond the text bar width
       --  We need to calculate the new Origin (which is where the bar is)
@@ -141,11 +136,13 @@ package body Thuja.Widgets.Text_Fields is
          S.Origin := S.Cursor;
       end if;
 
-      --  Inject cursor at specific point
-      Set_Cursor (B => Frame,
-         X => Pixels ((S.Cursor - S.Origin) + 1),
-         Y => 1,
-         Container => Row);
+      if Focused then
+         --  Inject cursor at specific point
+         Set_Cursor (B => Frame,
+            X => Pixels (S.Cursor - S.Origin + 1),
+            Y => 0,
+            Container => Row);
+      end if;
 
       --  Get the slice of the render text to display
       Render_Text := Bounded_Slice (
@@ -154,10 +151,10 @@ package body Thuja.Widgets.Text_Fields is
             High =>
                --  Get either the minimum length of the string
                --  or the max size string that will fit in the textbox
-               Natural'Min (Length (Render_Text), S.Origin + Natural (Row.Extent.Width) - 2)
+               Natural'Min (Length (Render_Text), S.Origin + Natural (Row.Extent.Width))
       );
 
-      Put (Frame, Row.Origin.X + 1, Row.Origin.Y + 1,
+      Put (Frame, Row.Origin.X + 1, Row.Origin.Y,
             To_String (Render_Text), Look, Clip => Row);
    end Draw;
 
