@@ -25,6 +25,11 @@ package Thuja.Widgets.Generic_Lists is
    --  Selected: the highlighted row. Top: the first row on screen.
    --  The application keeps one State per list and may read or set
    --  Selected at any time.
+   function Get_Selected (S : State) return Positive;
+
+   procedure Set_Selected
+   (S     : in out State;
+   Index : Positive);
 
    procedure Handle (S : in out State; E : Event; Used : out Boolean);
    --  Up, Down, Home and End move the selection. Used is False for any
