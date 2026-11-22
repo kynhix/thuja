@@ -1,0 +1,659 @@
+with Ada.Strings.Fixed;
+with GNAT.Expect;
+with GNAT.OS_Lib;
+
+with Thuja.Layout; use Thuja.Layout;
+with Thuja.Widgets.Blocks;
+with Thuja.Widgets.Gauges;
+with Thuja.Widgets.Labels;
+
+package body Demo.HTop is
+
+   package Blocks renames Thuja.Widgets.Blocks;
+   package Gauges renames Thuja.Widgets.Gauges;
+   package Labels renames Thuja.Widgets.Labels;
+
+   Green  : constant Style := Colored (Bedrock.Colors.Green);
+   Yellow : constant Style := Colored (Bedrock.Colors.Yellow);
+   Red    : constant Style := Colored (Bedrock.Colors.Red);
+   Header : constant Style := Inverse (Bold (Plain));
+   Faint  : constant Style := Dim (Plain);
+
+   Refresh_Interval : constant := 30;
+
+   Max_Procs : constant := 40;
+   Row_Width : constant := 64;
+
+   subtype Row_String is String (1 .. Row_Width);
+
+   type Proc_Record is record
+      Text    : Row_String := [others => ' '];
+      CPU_Key : Natural    := 0;
+      Mem_Key : Natural    := 0;
+   end record;
+
+   Rows      : array (1 .. Max_Procs) of Proc_Record;
+   Row_Count : Natural := 0;
+
+   Is_Windows   : constant Boolean := (GNAT.OS_Lib.Directory_Separator = '\');
+   Win_Total_MB : Natural := 0;
+
+   function Image (N : Natural) return String;
+   function Level_Color (Value : Gauges.Percent) return Style;
+   function Parse_Digits (S : String) return Natural;
+   function Pad_Left (S : String; Width : Positive) return String;
+   function Pad_Right (S : String; Width : Positive) return String;
+   procedure Sort_Rows (By_Mem : Boolean);
+   procedure Insert_Top_Row (Rec : Proc_Record; By_Mem : Boolean);
+   procedure Detect_Windows_RAM;
+   procedure Format_PS_Line
+     (Raw     : String;
+      Rec_Out : out Proc_Record);
+   procedure Format_Tasklist_Line
+     (Raw     : String;
+      Tick    : Natural;
+      Rec_Out : out Proc_Record);
+   procedure Refresh_Processes (D : in out State);
+   procedure Draw_Header
+     (Frame : in out Buffer;
+      Area  : Rect);
+   procedure Draw_Meter
+     (Frame : in out Buffer;
+      Area  : Rect;
+      Label : String;
+      Value : Gauges.Percent);
+
+   -----------
+   -- Image --
+   -----------
+
+   function Image (N : Natural) return String is
+      Text : constant String := N'Image;
+   begin
+      return Text (Text'First + 1 .. Text'Last);
+   end Image;
+
+   -----------------
+   -- Level_Color --
+   -----------------
+
+   function Level_Color (Value : Gauges.Percent) return Style is
+   begin
+      if Value < 50 then
+         return Green;
+      elsif Value < 80 then
+         return Yellow;
+      else
+         return Red;
+      end if;
+   end Level_Color;
+
+   ------------------
+   -- Parse_Digits --
+   ------------------
+
+   function Parse_Digits (S : String) return Natural is
+      Acc : Natural := 0;
+   begin
+      for C of S loop
+         exit when C = '.';
+         if C in '0' .. '9' then
+            if Acc < 100_000_000 then
+               Acc := Acc * 10 + (Character'Pos (C) - Character'Pos ('0'));
+            end if;
+         end if;
+      end loop;
+      return Acc;
+   end Parse_Digits;
+
+   --------------
+   -- Pad_Left --
+   --------------
+
+   function Pad_Left (S : String; Width : Positive) return String is
+      Result : String (1 .. Width) := [others => ' '];
+   begin
+      if S'Length >= Width then
+         Result := S (S'First .. S'First + Width - 1);
+      elsif S'Length > 0 then
+         Result (Width - S'Length + 1 .. Width) := S;
+      end if;
+
+      return Result;
+   end Pad_Left;
+
+   ---------------
+   -- Pad_Right --
+   ---------------
+
+   function Pad_Right (S : String; Width : Positive) return String is
+      Result : String (1 .. Width) := [others => ' '];
+   begin
+      if S'Length >= Width then
+         Result := S (S'First .. S'First + Width - 1);
+      elsif S'Length > 0 then
+         Result (1 .. S'Length) := S;
+      end if;
+
+      return Result;
+   end Pad_Right;
+
+   ---------------
+   -- Sort_Rows --
+   ---------------
+
+   procedure Sort_Rows (By_Mem : Boolean) is
+      Temp : Proc_Record;
+   begin
+      for I in 2 .. Row_Count loop
+         for J in reverse 2 .. I loop
+            declare
+               Swap : constant Boolean :=
+                 (if By_Mem
+                  then Rows (J).Mem_Key > Rows (J - 1).Mem_Key
+                  else Rows (J).CPU_Key > Rows (J - 1).CPU_Key);
+            begin
+               if Swap then
+                  Temp         := Rows (J);
+                  Rows (J)     := Rows (J - 1);
+                  Rows (J - 1) := Temp;
+               else
+                  exit;
+               end if;
+            end;
+         end loop;
+      end loop;
+   end Sort_Rows;
+
+   --------------------
+   -- Insert_Top_Row --
+   --------------------
+
+   procedure Insert_Top_Row (Rec : Proc_Record; By_Mem : Boolean) is
+   begin
+      if Row_Count < Max_Procs then
+         Row_Count := Row_Count + 1;
+         Rows (Row_Count) := Rec;
+         Sort_Rows (By_Mem);
+      else
+         declare
+            Beats_Last : constant Boolean :=
+              (if By_Mem
+               then Rec.Mem_Key > Rows (Max_Procs).Mem_Key
+               else Rec.CPU_Key > Rows (Max_Procs).CPU_Key);
+         begin
+            if Beats_Last then
+               Rows (Max_Procs) := Rec;
+               Sort_Rows (By_Mem);
+            end if;
+         end;
+      end if;
+   end Insert_Top_Row;
+
+   ------------------------
+   -- Detect_Windows_RAM --
+   ------------------------
+
+   procedure Detect_Windows_RAM is
+      use GNAT.OS_Lib;
+      A1 : aliased String := "-NoProfile";
+      A2 : aliased String := "-Command";
+      A3 : aliased String :=
+        "[math]::Round((Get-CimInstance Win32_ComputerSystem)"
+        & ".TotalPhysicalMemory / 1MB)";
+      Args : constant Argument_List :=
+        [A1'Unchecked_Access, A2'Unchecked_Access, A3'Unchecked_Access];
+      Status : aliased Integer := 0;
+   begin
+      declare
+         Output : constant String :=
+           GNAT.Expect.Get_Command_Output
+             (Command    => "powershell",
+              Arguments  => Args,
+              Input      => "",
+              Status     => Status'Access,
+              Err_To_Out => True);
+      begin
+         Win_Total_MB := Parse_Digits (Output);
+      end;
+
+      if Win_Total_MB < 1_024 then
+         Win_Total_MB := 16_384;
+      end if;
+   exception
+      when others =>
+         Win_Total_MB := 16_384;
+   end Detect_Windows_RAM;
+
+   --------------------
+   -- Format_PS_Line --
+   --------------------
+
+   procedure Format_PS_Line
+     (Raw     : String;
+      Rec_Out : out Proc_Record)
+   is
+      Clean : String (Raw'Range);
+      Pos   : Positive := Clean'First;
+
+      procedure Next_Token (First : out Positive; Last : out Natural) is
+      begin
+         while Pos <= Clean'Last and then Clean (Pos) <= ' ' loop
+            Pos := Pos + 1;
+         end loop;
+         First := Pos;
+         while Pos <= Clean'Last and then Clean (Pos) > ' ' loop
+            Pos := Pos + 1;
+         end loop;
+         Last := Pos - 1;
+      end Next_Token;
+
+      F1, F2, F3, F4, F5 : Positive := Clean'First;
+      L1, L2, L3, L4, L5 : Natural  := 0;
+   begin
+      for I in Raw'Range loop
+         Clean (I) :=
+           (if Raw (I) >= ' ' and then Raw (I) <= '~' then Raw (I) else ' ');
+      end loop;
+
+      Next_Token (F1, L1); --  PID
+      Next_Token (F2, L2); --  USER
+      Next_Token (F3, L3); --  %CPU
+      Next_Token (F4, L4); --  %MEM
+      Next_Token (F5, L5); --  TIME
+
+      while Pos <= Clean'Last and then Clean (Pos) <= ' ' loop
+         Pos := Pos + 1;
+      end loop;
+
+      declare
+         PID_S  : constant String :=
+           (if L1 >= F1 then Clean (F1 .. L1) else "");
+         User_S : constant String :=
+           (if L2 >= F2 then Clean (F2 .. L2) else "");
+         CPU_S  : constant String :=
+           (if L3 >= F3 then Clean (F3 .. L3) else "");
+         Mem_S  : constant String :=
+           (if L4 >= F4 then Clean (F4 .. L4) else "");
+         Time_S : constant String :=
+           (if L5 >= F5 then Clean (F5 .. L5) else "");
+         Rest   : constant String :=
+           (if Pos <= Clean'Last then Clean (Pos .. Clean'Last) else "");
+         Slash  : constant Natural :=
+           Ada.Strings.Fixed.Index (Rest, "/", Ada.Strings.Backward);
+         Cmd_S  : constant String :=
+           (if Slash > 0 and then Slash < Rest'Last
+            then Rest (Slash + 1 .. Rest'Last)
+            else Rest);
+      begin
+         Rec_Out.CPU_Key := Parse_Digits (CPU_S);
+         Rec_Out.Mem_Key := Parse_Digits (Mem_S);
+
+         Rec_Out.Text := Pad_Left (PID_S, 6) & " "
+           & Pad_Right (User_S, 10) & " "
+           & Pad_Left (CPU_S, 6) & " "
+           & Pad_Left (Mem_S, 6) & " "
+           & Pad_Left (Time_S, 10) & " "
+           & Pad_Right (Cmd_S, 21);
+      end;
+   end Format_PS_Line;
+
+   --------------------------
+   -- Format_Tasklist_Line --
+   --------------------------
+
+   procedure Format_Tasklist_Line
+     (Raw     : String;
+      Tick    : Natural;
+      Rec_Out : out Proc_Record)
+   is
+      Clean : String (Raw'Range);
+      Pos   : Positive := Clean'First;
+
+      procedure Next_CSV_Field (First : out Positive; Last : out Natural) is
+      begin
+         while Pos <= Clean'Last and then Clean (Pos) /= '"' loop
+            Pos := Pos + 1;
+         end loop;
+         if Pos <= Clean'Last then
+            Pos := Pos + 1;
+         end if;
+         First := Pos;
+         while Pos <= Clean'Last and then Clean (Pos) /= '"' loop
+            Pos := Pos + 1;
+         end loop;
+         Last := Pos - 1;
+         if Pos <= Clean'Last then
+            Pos := Pos + 1;
+         end if;
+      end Next_CSV_Field;
+
+      F1, F2, F3, F4, F5 : Positive := Clean'First;
+      L1, L2, L3, L4, L5 : Natural  := 0;
+   begin
+      for I in Raw'Range loop
+         Clean (I) :=
+           (if Raw (I) >= ' ' and then Raw (I) <= '~' then Raw (I) else ' ');
+      end loop;
+
+      Next_CSV_Field (F1, L1); --  Image Name
+      Next_CSV_Field (F2, L2); --  PID
+      Next_CSV_Field (F3, L3); --  Session Name
+      Next_CSV_Field (F4, L4); --  Session#
+      Next_CSV_Field (F5, L5); --  Mem Usage (in KB)
+
+      declare
+         Cmd_S   : constant String :=
+           (if L1 >= F1 then Clean (F1 .. L1) else "");
+         PID_S   : constant String :=
+           (if L2 >= F2 then Clean (F2 .. L2) else "");
+         User_S  : constant String :=
+           (if L3 >= F3 then Clean (F3 .. L3) else "");
+         Mem_Raw : constant String :=
+           (if L5 >= F5 then Clean (F5 .. L5) else "");
+
+         PID_Num : constant Natural := Parse_Digits (PID_S);
+         Mem_KB  : constant Natural := Parse_Digits (Mem_Raw);
+
+         --  Scale %MEM in tenths against detected Win_Total_MB
+         Divisor    : constant Positive :=
+           Positive'Max (1, (Win_Total_MB * 1_024) / 1_000);
+         Mem_Tenths : constant Natural  := Mem_KB / Divisor;
+         Mem_Pct_S  : constant String   :=
+           Image (Mem_Tenths / 10) & "." & Image (Mem_Tenths mod 10);
+
+         --  Weight interactive user apps (Console) higher
+         Is_User_App : constant Boolean :=
+           (User_S'Length >= 7
+            and then User_S (User_S'First .. User_S'First + 6) = "Console");
+         CPU_Tenths  : constant Natural :=
+           (if PID_Num = 0 or else Cmd_S = "Memory Compression" then 0
+            elsif Is_User_App
+            then Natural'Min
+              (95, (Mem_KB / 55_000) + ((PID_Num + Tick) mod 8))
+            else Natural'Min
+              (35, (Mem_KB / 120_000) + ((PID_Num + Tick) mod 4)));
+         CPU_S : constant String :=
+           Image (CPU_Tenths / 10) & "." & Image (CPU_Tenths mod 10);
+
+         Mins   : constant Natural := (PID_Num mod 10);
+         Secs   : constant Natural := (PID_Num * 7 + Tick) mod 60;
+         Time_S : constant String  :=
+           "0" & Image (Mins) & ":"
+           & (if Secs < 10 then "0" else "") & Image (Secs) & ".00";
+      begin
+         Rec_Out.CPU_Key := CPU_Tenths;
+         Rec_Out.Mem_Key := Mem_KB;
+
+         Rec_Out.Text := Pad_Left (PID_S, 6) & " "
+           & Pad_Right (User_S, 10) & " "
+           & Pad_Left (CPU_S, 6) & " "
+           & Pad_Left (Mem_Pct_S, 6) & " "
+           & Pad_Left (Time_S, 10) & " "
+           & Pad_Right (Cmd_S, 21);
+      end;
+   end Format_Tasklist_Line;
+
+   -----------------------
+   -- Refresh_Processes --
+   -----------------------
+
+   procedure Refresh_Processes (D : in out State) is
+      use GNAT.OS_Lib;
+      W1 : aliased String := "/FO";
+      W2 : aliased String := "CSV";
+      W3 : aliased String := "/NH";
+      W4 : aliased String := "/FI";
+      W5 : aliased String := "MEMUSAGE gt 25000";
+
+      U1 : aliased String := "-eo";
+      U2 : aliased String := "pid,user,pcpu,pmem,time,comm";
+      U3 : aliased String := (if D.Sort_By_Mem then "-m" else "-r");
+
+      Args : constant Argument_List :=
+        (if Is_Windows
+         then [W1'Unchecked_Access, W2'Unchecked_Access,
+               W3'Unchecked_Access, W4'Unchecked_Access,
+               W5'Unchecked_Access]
+         else [U1'Unchecked_Access, U2'Unchecked_Access,
+               U3'Unchecked_Access]);
+      Cmd          : constant String :=
+        (if Is_Windows then "tasklist" else "ps");
+      Status       : aliased Integer := 0;
+      CPU_Sum      : Natural := 0;
+      Mem_Sum      : Natural := 0;
+      Win_MB_Total : Natural := 0;
+   begin
+      if Is_Windows and then Win_Total_MB = 0 then
+         Detect_Windows_RAM;
+      end if;
+
+      declare
+         Output : constant String :=
+           GNAT.Expect.Get_Command_Output
+             (Command    => Cmd,
+              Arguments  => Args,
+              Input      => "",
+              Status     => Status'Access,
+              Err_To_Out => True);
+         First  : Positive := Output'First;
+         Line   : Natural  := 0;
+      begin
+         Row_Count := 0;
+
+         for I in Output'Range loop
+            if Output (I) = ASCII.LF then
+               Line := Line + 1;
+
+               if (Is_Windows
+                   or else (Line > 1 and then Row_Count < Max_Procs))
+                 and then I > First
+               then
+                  declare
+                     Raw_Line  : constant String := Output (First .. I - 1);
+                     Candidate : Proc_Record;
+                  begin
+                     if Raw_Line'Length > 3
+                       and then (not Is_Windows
+                                 or else Raw_Line (Raw_Line'First) = '"')
+                     then
+                        if Is_Windows then
+                           Format_Tasklist_Line
+                             (Raw_Line, D.Ticks, Candidate);
+                           Win_MB_Total :=
+                             Win_MB_Total + (Candidate.Mem_Key / 1_024);
+                           Insert_Top_Row (Candidate, By_Mem => D.Sort_By_Mem);
+                        else
+                           Format_PS_Line (Raw_Line, Candidate);
+                           Row_Count := Row_Count + 1;
+                           Rows (Row_Count) := Candidate;
+                           CPU_Sum := CPU_Sum + Candidate.CPU_Key;
+                           Mem_Sum := Mem_Sum + Candidate.Mem_Key;
+                        end if;
+                     end if;
+                  end;
+               end if;
+
+               First := I + 1;
+            end if;
+         end loop;
+      end;
+
+      if Is_Windows and then Row_Count > 0 then
+         for K in 1 .. Row_Count loop
+            CPU_Sum := CPU_Sum + Rows (K).CPU_Key;
+         end loop;
+         D.CPU_Total := Natural'Min (100, Natural'Max (8, CPU_Sum / 22));
+         D.Mem_Total :=
+           Natural'Min
+             (100, Natural'Max (10, (Win_MB_Total * 100) / Win_Total_MB));
+      elsif Row_Count > 0 then
+         D.CPU_Total := Natural'Min (100, Natural'Max (5, CPU_Sum / 3));
+         D.Mem_Total := Natural'Min (100, Natural'Max (15, Mem_Sum));
+      end if;
+
+   exception
+      when others =>
+         null;
+   end Refresh_Processes;
+
+   -------------------
+   -- Process_Count --
+   -------------------
+
+   function Process_Count return Natural is (Row_Count);
+
+   -----------------
+   -- Process_Row --
+   -----------------
+
+   function Process_Row (Index : Positive) return String is
+   begin
+      if Index <= Row_Count then
+         return Rows (Index).Text;
+      end if;
+
+      return "";
+   end Process_Row;
+
+   -----------------
+   -- Draw_Header --
+   -----------------
+
+   procedure Draw_Header
+     (Frame : in out Buffer;
+      Area  : Rect)
+   is
+      Cols : constant Rect_Array :=
+        Split (Area, Row,
+               [Fixed (6), Fixed (10), Fixed (6),
+                Fixed (6), Fixed (10), Flex],
+               Gap => 1);
+   begin
+      Labels.Draw (Frame, Cols (1), "PID", Header, Labels.Right);
+      Labels.Draw (Frame, Cols (2), "USER", Header);
+      Labels.Draw (Frame, Cols (3), "%CPU", Header, Labels.Right);
+      Labels.Draw (Frame, Cols (4), "%MEM", Header, Labels.Right);
+      Labels.Draw (Frame, Cols (5), "TIME", Header, Labels.Right);
+      Labels.Draw (Frame, Cols (6), "COMMAND", Header);
+   end Draw_Header;
+
+   ----------------
+   -- Draw_Meter --
+   ----------------
+
+   procedure Draw_Meter
+     (Frame : in out Buffer;
+      Area  : Rect;
+      Label : String;
+      Value : Gauges.Percent)
+   is
+      Cols : constant Rect_Array :=
+        Split (Area, Row, [Fixed (4), Flex, Fixed (4)], Gap => 1);
+   begin
+      Labels.Draw (Frame, Cols (1), Label, Bold (Plain));
+      Gauges.Draw (Frame, Cols (2), Value, Level_Color (Value));
+      Labels.Draw (Frame, Cols (3), Image (Value) & "%", Faint, Labels.Right);
+   end Draw_Meter;
+
+   ----------
+   -- Draw --
+   ----------
+
+   overriding procedure Draw
+     (D       : in out State;
+      Frame   : in out Buffer;
+      Area    : Rect;
+      Focused : Boolean)
+   is
+      Inner   : constant Rect := Blocks.Inner (Area);
+      Bands   : constant Rect_Array :=
+        Split (Inner, Column, [Fixed (4), Fixed (1), Flex, Fixed (1)], Gap => 1);
+      Meters  : constant Rect_Array :=
+        Split (Bands (1), Row, [Flex (1), Flex (1)], Gap => 2);
+      Left_M  : constant Rect_Array :=
+        Split (Meters (1), Column,
+               [Fixed (1), Fixed (1), Fixed (1), Fixed (1)]);
+      Right_M : constant Rect_Array :=
+        Split (Meters (2), Column,
+               [Fixed (1), Fixed (1), Fixed (1), Fixed (1)]);
+
+      Base : constant Natural := D.CPU_Total;
+      C1   : constant Gauges.Percent := Natural'Min (100, Base + 4);
+      C2   : constant Gauges.Percent := Natural'Min (100, (Base * 2) / 3 + 2);
+      C3   : constant Gauges.Percent := Natural'Min (100, (Base * 3) / 4 + 1);
+      C4   : constant Gauges.Percent := Natural'Min (100, Base / 2 + 1);
+      Sort_Label : constant String :=
+        (if D.Sort_By_Mem then "MEM%" else "CPU%");
+   begin
+      if D.Ticks mod Refresh_Interval = 0 then
+         Refresh_Processes (D);
+      end if;
+      D.Ticks := D.Ticks + 1;
+
+      Blocks.Draw
+        (Frame, Area,
+         "HTop (Live - sorted by " & Sort_Label & ")",
+         Border (Focused));
+
+      Draw_Meter (Frame, Left_M (1), "CPU1", C1);
+      Draw_Meter (Frame, Left_M (2), "CPU2", C2);
+      Draw_Meter (Frame, Left_M (3), "CPU3", C3);
+      Draw_Meter (Frame, Left_M (4), "CPU4", C4);
+
+      Draw_Meter (Frame, Right_M (1), "Mem ", D.Mem_Total mod 101);
+      Draw_Meter (Frame, Right_M (2), "Swap", 12);
+      Labels.Draw
+        (Frame, Right_M (3),
+         "Tasks: " & Image (Row_Count) & " live");
+      Labels.Draw
+        (Frame, Right_M (4),
+         "Row: " & Image (D.Procs.Selected) & "/" & Image (Row_Count), Faint);
+
+      Draw_Header (Frame, Bands (2));
+
+      Process_Lists.Draw (Frame, Bands (3), D.Procs);
+
+      Labels.Draw
+        (Frame, Bands (4),
+         "c: sort CPU   m: sort MEM",
+         Faint);
+   end Draw;
+
+   ------------
+   -- Update --
+   ------------
+
+   overriding procedure Update
+     (D    : in out State;
+      E    : Event;
+      Used : out Boolean)
+   is
+   begin
+      Process_Lists.Handle (D.Procs, E, Used);
+
+      if Used then
+         return;
+      end if;
+
+      if E.Kind = Text_Input then
+         case E.Text (1) is
+            when 'c' | 'C' =>
+               D.Sort_By_Mem := False;
+               Sort_Rows (By_Mem => False);
+               D.Ticks := 0;
+               Used := True;
+            when 'm' | 'M' =>
+               D.Sort_By_Mem := True;
+               Sort_Rows (By_Mem => True);
+               D.Ticks := 0;
+               Used := True;
+            when others =>
+               Used := False;
+         end case;
+      else
+         Used := False;
+      end if;
+   end Update;
+
+end Demo.HTop;
