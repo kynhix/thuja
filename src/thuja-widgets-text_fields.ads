@@ -1,19 +1,19 @@
 --  One line of input text in an area
+with Ada.Strings.Wide_Wide_Bounded;
 with Bedrock.Input; use Bedrock.Input;
 with Thuja.Buffers; use Thuja.Buffers;
-with Ada.Strings.Bounded;
 
 package Thuja.Widgets.Text_Fields is
    --  Do a Max length of 256 by default
    Max_Length : constant Natural := 256;
 
    package Input_Strings is new
-      Ada.Strings.Bounded.Generic_Bounded_Length (Max => Max_Length);
+      Ada.Strings.Wide_Wide_Bounded.Generic_Bounded_Length (Max => Max_Length);
 
    use Input_Strings;
 
    type State is record
-      Text    : Bounded_String := Null_Bounded_String;
+      Text    : Bounded_Wide_Wide_String := Null_Bounded_Wide_Wide_String;
       Cursor  : Natural := 0; -- start at 0
       Origin  : Natural := 0; -- Keep track of where to start drawing text
    end record;
@@ -37,7 +37,7 @@ package Thuja.Widgets.Text_Fields is
    --  Along with a title
 
    procedure Set_Text (S : in out State;
-                       Text : String)
+                       Text : Wide_Wide_String)
       with Pre => Text'Length >= 0 and then Text'Length < 256;
 
 end Thuja.Widgets.Text_Fields;

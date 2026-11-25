@@ -1,6 +1,7 @@
 with Thuja.Styles; use Thuja.Styles;
-package body Thuja.Widgets.Text_Fields is
+with Ada.Strings.UTF_Encoding.Wide_Wide_Strings;
 
+package body Thuja.Widgets.Text_Fields is
    --  Some specifications for the String Helpers
    function Space_Before (S : State) return Natural;
 
@@ -15,6 +16,7 @@ package body Thuja.Widgets.Text_Fields is
    -- Handle --
    ------------
    procedure Handle (S : in out State; E : Event; Used : out Boolean) is
+      package UTF8 renames Ada.Strings.UTF_Encoding.Wide_Wide_Strings;
    begin
       Used := True;
 
@@ -92,8 +94,8 @@ package body Thuja.Widgets.Text_Fields is
          when Text_Input =>
                --  Only add the text if we're not going to exceed the max length
                if Length (S.Text) < Max_Length - E.Length then
-                  Insert (S.Text, S.Cursor + 1, E.Text (1 .. E.Length));
-                  S.Cursor := S.Cursor + E.Length;
+                  Insert (S.Text, S.Cursor + 1, UTF8.Decode (E.Text (1 .. E.Length)));
+                  S.Cursor := S.Cursor + 1;
                end if;
 
          when others =>
@@ -112,8 +114,9 @@ package body Thuja.Widgets.Text_Fields is
       S         : in out State;
       Focused   : Boolean)
    is
+      package UTF8 renames Ada.Strings.UTF_Encoding.Wide_Wide_Strings;
       Look  : constant Style := Thuja.Styles.Plain;
-      Render_Text : Bounded_String := S.Text;
+      Render_Text : Bounded_Wide_Wide_String := S.Text;
       Row   : constant Rect :=
         Make (Area.Origin.X, Area.Origin.Y, Area.Extent.Width, 1);
    begin
@@ -155,7 +158,7 @@ package body Thuja.Widgets.Text_Fields is
       );
 
       Put (Frame, Row.Origin.X + 1, Row.Origin.Y,
-            To_String (Render_Text), Look, Clip => Row);
+            UTF8.Encode (To_Wide_Wide_String (Render_Text)), Look, Clip => Row);
    end Draw;
 
    --------------
@@ -163,9 +166,9 @@ package body Thuja.Widgets.Text_Fields is
    --------------
 
    procedure Set_Text (S : in out State;
-                       Text : String) is
+                       Text : Wide_Wide_String) is
    begin
-      S.Text := To_Bounded_String (Text);
+      S.Text := To_Bounded_Wide_Wide_String (Text);
       S.Cursor := Text'Length;
    end Set_Text;
 
@@ -175,7 +178,7 @@ package body Thuja.Widgets.Text_Fields is
 
    --  Get space before
    function Space_Before (S : State) return Natural is
-      Text : constant String := To_String (S.Text);
+      Text : constant Wide_Wide_String := To_Wide_Wide_String (S.Text);
       Cursor : Natural := S.Cursor;
    begin
       if Cursor = 0 then
@@ -196,7 +199,7 @@ package body Thuja.Widgets.Text_Fields is
 
    --  Get Space after
    function Space_After (S : State) return Natural is
-      Text : constant String := To_String (S.Text);
+      Text : constant Wide_Wide_String := To_Wide_Wide_String (S.Text);
       Cursor : Natural := S.Cursor;
    begin
       if Cursor = Text'Length then
@@ -218,7 +221,7 @@ package body Thuja.Widgets.Text_Fields is
    procedure Delete_Before (S : in out State) is
       BeforeIndex : Natural := S.Cursor;
       AfterIndex : constant Natural := S.Cursor;
-      Text : constant String := To_String (S.Text);
+      Text : constant Wide_Wide_String := To_Wide_Wide_String (S.Text);
    begin
       --  Don't do anything if we're already at the start.
       if S.Cursor <= 1 then

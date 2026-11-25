@@ -11,6 +11,8 @@
 
 with Ada.Command_Line;
 with Ada.Strings.Unbounded; use Ada.Strings.Unbounded;
+with Ada.Strings.UTF_Encoding.Wide_Wide_Strings;
+
 with Ada.Text_IO;           use Ada.Text_IO;
 
 with Bedrock.Input;  use Bedrock.Input;
@@ -430,22 +432,25 @@ procedure Tests is
 
 procedure Test_Text_Fields is
    package Text_Field renames Thuja.Widgets.Text_Fields;
+   package UTF8 renames Ada.Strings.UTF_Encoding.Wide_Wide_Strings;
    use Text_Field.Input_Strings;
    S    : Text_Field.State;
    Used : Boolean;
-   TestText : Bounded_String := To_Bounded_String ("ABCDEFG");
+   TestText : Bounded_Wide_Wide_String := To_Bounded_Wide_Wide_String ("ABCDEFG");
    LetterD : constant Event_List := Decode ("D");
    B     : Buffer (256, 5);
+   E_Acute : constant Wide_Wide_Character :=
+      Wide_Wide_Character'Val (16#E9#);
 begin
-   for E of Decode(To_String (TestText)) loop
+   for E of Decode(UTF8.Encode(To_Wide_Wide_String(TestText))) loop
       Text_Field.Handle(S, E, Used);
    end loop;
 
    Check ("Confirm Typed text matches", S.Text = TestText);
 
-   TestText := To_Bounded_String ("ABC");
+   TestText := To_Bounded_Wide_Wide_String ("ABC");
 
-   Text_Field.Set_Text(S, To_String (TestText));
+   Text_Field.Set_Text(S, To_Wide_Wide_String (TestText));
 
    Check ("Confirm Set Text worked", S.Text = TestText);
 
@@ -456,7 +461,7 @@ begin
    -- Type a letter D
    Text_Field.Handle (S, LetterD (LetterD'First), Used);
    -- Confirm it inserted it at the proper point
-   Check ("Confirm Moving and insert worked", S.Text = To_Bounded_String ("ADBC"));
+   Check ("Confirm Moving and insert worked", S.Text = To_Bounded_Wide_Wide_String ("ADBC"));
 
    -- Check making sure right does not crash the program
    for E in 1 .. 100 loop
@@ -467,7 +472,7 @@ begin
    -- Type another Letter D
    Text_Field.Handle (S, LetterD (LetterD'First), Used);
    -- Confirm it inserted it at the proper point
-   Check ("Confirm Moving right and still adds it at the end", S.Text = To_Bounded_String ("ADBCD"));
+   Check ("Confirm Moving right and still adds it at the end", S.Text = To_Bounded_Wide_Wide_String ("ADBCD"));
 
    --  Move left once
    Text_Field.Handle(S, Key_Event (Key_Left, Down => True), Used);
@@ -516,7 +521,7 @@ begin
          Row (B, 0) (2 .. 5) = "DEFG");
 
    declare
-      Long_Text : constant String := "ABC DEF GHI JHK LMN OPQ RST UV";
+      Long_Text : constant Wide_Wide_String := "ABC DEF GHI JHK LMN OPQ RST UV";
    begin
       Text_Field.Set_Text (S, Long_Text);
       S.Cursor := 0;
@@ -536,9 +541,40 @@ begin
       Check ("Confirm Ctrl right hit 3 times moves the scroll the correct amount",
          Row (B, 0) (2 .. 9) = "DEF GHI ");
    end;
-   --  Text field horizontal scrolling tests
 
-   
+   --  Reset Text Field.
+   Text_Field.Set_Text(S, "");
+
+   --  Enter "AéB" (4 bytes, 3 code points)
+   for E of Decode ("A" & Thuja.UTF8.Encode (E_Acute) & "B") loop
+      Text_Field.Handle (S, E, Used);
+   end loop;
+
+   Check ("UTF-8 input length should be 3", Length (S.Text) = 3);
+   Check ("UTF-8 cursor after input should be at the end", S.Cursor = 3);
+
+   --  Move left twice
+   Text_Field.Handle(S, Key_Event (Key_Left, Down => True), Used);
+   Text_Field.Handle(S, Key_Event (Key_Left, Down => True), Used);
+
+   Check ("UTF-8 cursor left - cursor should be at 1 after 2 left arrows", S.Cursor = 1);
+
+   --  Move right across the é character
+   Text_Field.Handle(S, Key_Event (Key_Right, Down => True), Used);
+
+   Check ("UTF-8 cursor right - cursor should be at 2 after 1 right arrow", S.Cursor = 2);
+
+   --  Insert X after the é character
+   Text_Field.Handle (S, Decode ("X") (1), Used);
+
+   Check ("UTF-8 insert X after the é character",
+          To_Wide_Wide_String (S.Text) = "A" & E_Acute & "XB");
+
+   --  Move Left once and then delete the é character
+   Text_Field.Handle(S, Key_Event (Key_Left, Down => True), Used);
+   Text_Field.Handle(S, Key_Event (Key_Backspace, Down => True), Used);
+
+   Check ("UTF-8 Delete the é character", To_Wide_Wide_String (S.Text) = "AXB");
 
 end Test_Text_Fields;
 
