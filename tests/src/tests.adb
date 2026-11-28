@@ -28,6 +28,7 @@ with Thuja.Widgets.Gauges;
 with Thuja.Widgets.Generic_Lists;
 with Thuja.Widgets.Text_Fields;
 with Thuja.Widgets.Labels;
+with Thuja.Widgets.Buttons;
 
 procedure Tests is
 
@@ -542,6 +543,34 @@ begin
 
 end Test_Text_Fields;
 
+---------------------------------------------------------------------
+--  Button Widget: Tests
+---------------------------------------------------------------------
+
+   procedure Test_Buttons is
+      package Button renames Thuja.Widgets.Buttons;
+
+      S           : Button.State;
+      B           : Buffer (10, 3);
+      Used        : Boolean;
+      Was_Clicked : Boolean;
+   begin
+      Button.Handle
+        (S, Key_Event (Key_Return, Down => True),
+         Used, Was_Clicked);
+
+      Check ("button, Enter activates",
+             Used and then Was_Clicked);
+
+      Button.Draw (B, Area (B), "OK", S);
+
+      Check ("button, rendering",
+             Row (B, 0) = "+--------+"
+             and then Row (B, 1) = "|   OK   |"
+             and then Row (B, 2) = "+--------+");
+
+   end Test_Buttons;
+
 begin
    Test_Geometry;
    Test_Buffers;
@@ -550,6 +579,7 @@ begin
    Test_Renderer;
    Test_Widgets;
    Test_Text_Fields;
+   Test_Buttons;
 
    New_Line;
    Put_Line (Failures'Image & " failed," & Pending'Image & " still to do");
@@ -558,3 +588,5 @@ begin
       Ada.Command_Line.Set_Exit_Status (Ada.Command_Line.Failure);
    end if;
 end Tests;
+
+

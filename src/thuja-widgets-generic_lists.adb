@@ -1,5 +1,4 @@
 package body Thuja.Widgets.Generic_Lists is
-
    ------------
    -- Handle --
    ------------
